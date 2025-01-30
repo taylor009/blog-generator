@@ -103,8 +103,92 @@ By combining [LangChain](https://github.com/hwchase17/langchain) for prompt chai
 
 ## Setup and Installation
 
-1. **Clone the Repository**
+This project can be run using either **npm** or **Bun**. Follow the steps below to install dependencies, configure the environment, and start the application.
 
-   ```bash
-   git clone https://github.com/your-username/multi-agent-blog-generator.git
-   cd multi-agent-blog-generator
+### 1. Installing Dependencies
+
+#### Using npm
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/multi-agent-blog-generator.git
+cd multi-agent-blog-generator
+
+# Install dependencies with npm
+npm install
+
+### Using Bun
+
+# Clone the repository
+git clone https://github.com/your-username/multi-agent-blog-generator.git
+cd multi-agent-blog-generator
+
+# Install dependencies with Bun
+bun install
+
+
+## 2. Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root (it’s already listed in `.gitignore`).
+
+Add your OpenAI API Key and any other required keys or settings:
+
+```bash
+OPENAI_API_KEY=your-openai-api-key
+
+
+## 3. Running the Project
+
+### Using npm
+
+# Compile TypeScript (optional step; you can also rely on ts-node if configured)
+```bash
+npm run build
+```
+
+# Start the project
+```bash
+npm run start
+```
+
+
+### Using Bun
+
+# Compile TypeScript (optional step; you can also rely on ts-node if configured)
+```bash
+bun run build
+```
+
+# Start the project
+```bash
+bun run start
+```
+
+## Usage Flow
+
+Below is the general flow of how the multi-agent system works. Some agents are still in development (marked as “planned”).
+
+### Researcher Agent
+1. Receives a topic input (e.g., “AI-driven content creation”).  
+2. Searches for information (using [Tavily](https://www.npmjs.com/package/tavily) or another search API).  
+3. Summarizes the findings using ChatGPT or another LLM.
+
+### Curator Agent (Planned)
+- Filters and selects the most relevant segments from the Researcher’s summary.
+
+### Writer Agent (Planned)
+- Creates a coherent first draft of the blog post using the curated information.
+
+### Critiquer Agent (Planned)
+- Reviews the draft, suggesting improvements on clarity, style, and accuracy.
+
+### Editor Agent (Planned)
+- Integrates the Critiquer’s feedback to finalize the content.
+
+### Publisher Agent (Planned)
+- Outputs or publishes the final, polished blog post (to a CMS, Markdown file, etc.).
+
+
+

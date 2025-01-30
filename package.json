@@ -1,0 +1,20 @@
+{
+  "name": "blog-agent",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@langchain/community": "^0.3.28",
+    "@langchain/core": "^0.3.37",
+    "@langchain/langgraph": "^0.2.44",
+    "@langchain/openai": "^0.4.2",
+    "dotenv": "^16.4.7",
+    "langchain": "^0.3.15",
+    "langsmith": "^0.3.3"
+  }
+}

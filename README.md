@@ -131,7 +131,7 @@ bun install
 
 ### Environment Variables
 
-Create a `.env` file in the project root (it’s already listed in `.gitignore`).
+Create a `.env` file in the project root (it's already listed in `.gitignore`).
 
 Add your OpenAI API Key and any other required keys or settings:
 
@@ -168,15 +168,15 @@ bun run start
 
 ## Usage Flow
 
-Below is the general flow of how the multi-agent system works. Some agents are still in development (marked as “planned”).
+Below is the general flow of how the multi-agent system works. Some agents are still in development (marked as "planned").
 
 ### Researcher Agent
-1. Receives a topic input (e.g., “AI-driven content creation”).  
+1. Receives a topic input (e.g., "AI-driven content creation").  
 2. Searches for information (using [Tavily](https://www.npmjs.com/package/tavily) or another search API).  
 3. Summarizes the findings using ChatGPT or another LLM.
 
 ### Curator Agent (Planned)
-- Filters and selects the most relevant segments from the Researcher’s summary.
+- Filters and selects the most relevant segments from the Researcher's summary.
 
 ### Writer Agent (Planned)
 - Creates a coherent first draft of the blog post using the curated information.
@@ -185,10 +185,72 @@ Below is the general flow of how the multi-agent system works. Some agents are s
 - Reviews the draft, suggesting improvements on clarity, style, and accuracy.
 
 ### Editor Agent (Planned)
-- Integrates the Critiquer’s feedback to finalize the content.
+- Integrates the Critiquer's feedback to finalize the content.
 
 ### Publisher Agent (Planned)
 - Outputs or publishes the final, polished blog post (to a CMS, Markdown file, etc.).
+
+## Agent Workflow
+
+```mermaid
+graph LR
+    Topic[Topic Input] --> R[Researcher Agent]
+    R -->|Raw Data| C[Curator Agent]
+    C -->|Curated Content| W[Writer Agent]
+    W -->|Draft Post| CR[Critiquer Agent]
+    CR -->|Feedback| E[Editor Agent]
+    E -->|Polished Post| P[Publisher Agent]
+    P -->|Published Post| GH[GitHub Pages]
+    
+    subgraph Data Flow
+        R -->|Search Results| C
+        C -->|Selected Info| W
+        W -->|Initial Draft| CR
+        CR -->|Critique| E
+        E -->|Final Draft| P
+    end
+
+    style Topic fill:#f9f,stroke:#333,stroke-width:2px
+    style R fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bbf,stroke:#333,stroke-width:2px
+    style W fill:#bbf,stroke:#333,stroke-width:2px
+    style CR fill:#bbf,stroke:#333,stroke-width:2px
+    style E fill:#bbf,stroke:#333,stroke-width:2px
+    style P fill:#bbf,stroke:#333,stroke-width:2px
+    style GH fill:#bfb,stroke:#333,stroke-width:2px
+```
+
+### Agent Responsibilities
+
+1. **Researcher Agent**
+   - Uses Tavily Search API
+   - Gathers comprehensive information
+   - Summarizes findings
+
+2. **Curator Agent**
+   - Filters relevant information
+   - Scores content quality
+   - Suggests content angles
+
+3. **Writer Agent**
+   - Creates initial blog draft
+   - Structures content
+   - Incorporates sources
+
+4. **Critiquer Agent**
+   - Reviews content quality
+   - Checks SEO optimization
+   - Suggests improvements
+
+5. **Editor Agent**
+   - Implements critique feedback
+   - Refines writing style
+   - Optimizes structure
+
+6. **Publisher Agent**
+   - Formats for Jekyll
+   - Handles GitHub Pages deployment
+   - Manages metadata
 
 
 

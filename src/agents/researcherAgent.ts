@@ -49,8 +49,7 @@ export class ResearcherAgent implements BaseAgent {
         });
 
         this.model = new ChatOpenAI({
-            modelName: "gpt-4o-mini",
-            temperature: 0.7,
+            modelName: "o1-mini",
             openAIApiKey: process.env.OPENAI_API_KEY,
         });
     }

@@ -68,7 +68,7 @@ export class PublisherAgent implements BaseAgent {
 
     this.model = new ChatOpenAI({
       modelName: "gpt-4o-mini",
-      temperature: 1, // Default temperature for o1
+      temperature: 0.2, // Lower temperature for consistent formatting
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
 

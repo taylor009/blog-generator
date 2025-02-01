@@ -76,24 +76,124 @@ export class EditorAgent implements BaseAgent {
 
     this.model = new ChatOpenAI({
       modelName: "o1-mini",
-       // Balanced between creativity and consistency
+      // Balanced between creativity and consistency
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
   }
 
   private async parseJSONSafely(jsonString: string): Promise<any> {
     try {
+      // First try to parse the string directly
       return JSON.parse(jsonString);
     } catch (e) {
-      const jsonMatch = jsonString.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (jsonMatch) {
+      // Look for JSON in markdown code blocks first
+      const codeBlockRegex = /```(?:json)?\n([\s\S]*?)\n```/;
+      const codeBlockMatch = jsonString.match(codeBlockRegex);
+
+      if (codeBlockMatch && codeBlockMatch[1]) {
         try {
-          return JSON.parse(jsonMatch[0]);
+          // Try to parse the content inside the code block
+          return JSON.parse(codeBlockMatch[1]);
         } catch (e2) {
-          throw new Error(`Failed to parse JSON response: ${jsonString}`);
+          // If that fails, try to clean up the code block content
+          const cleanedBlock = codeBlockMatch[1]
+            .replace(/\\n/g, " ") // Replace literal \n with space
+            .replace(/\n/g, " ") // Replace actual newlines with space
+            .replace(/\s+/g, " ") // Normalize whitespace
+            .replace(/"\s+}/g, '"}') // Fix spacing in object endings
+            .replace(/"\s+,/g, '",') // Fix spacing in property separators
+            .replace(/,(\s+})/g, "$1") // Remove trailing commas
+            .replace(/\\"/g, '"') // Fix escaped quotes
+            .replace(/\\\\/g, "\\") // Fix escaped backslashes
+            .trim();
+
+          try {
+            return JSON.parse(cleanedBlock);
+          } catch (e3) {
+            // Continue to next attempt if this fails
+          }
         }
       }
-      throw new Error(`No valid JSON found in response: ${jsonString}`);
+
+      // If no code block or parsing failed, try to find JSON pattern in the whole text
+      const jsonPattern = /(\{[\s\S]*?\}|\[[\s\S]*?\])/;
+      const jsonMatch = jsonString.match(jsonPattern);
+
+      if (jsonMatch && jsonMatch[1]) {
+        try {
+          let cleaned = jsonMatch[1]
+            .replace(/\\n/g, " ")
+            .replace(/\n/g, " ")
+            .replace(/\s+/g, " ")
+            .replace(/"\s+}/g, '"}')
+            .replace(/"\s+,/g, '",')
+            .replace(/,(\s+})/g, "$1")
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, "\\")
+            .trim();
+
+          return JSON.parse(cleaned);
+        } catch (e4) {
+          // Log the cleaned content for debugging
+          console.error("Failed to parse cleaned JSON:", jsonMatch[1]);
+        }
+      }
+
+      // If all attempts fail, throw a descriptive error
+      console.error("Original content:", jsonString);
+      throw new Error(
+        "Failed to parse JSON response. The response may not be in the expected format."
+      );
+    }
+  }
+
+  private validateImprovementPlan(plan: any): void {
+    if (!plan.improvementPlan) {
+      throw new Error("Missing improvementPlan in response");
+    }
+
+    const {
+      titleChanges,
+      structuralChanges,
+      styleImprovements,
+      seoOptimizations,
+    } = plan.improvementPlan;
+
+    if (typeof titleChanges?.shouldChange !== "boolean") {
+      throw new Error("Invalid titleChanges format");
+    }
+
+    if (!Array.isArray(structuralChanges)) {
+      throw new Error("structuralChanges must be an array");
+    }
+
+    if (!Array.isArray(styleImprovements)) {
+      throw new Error("styleImprovements must be an array");
+    }
+
+    if (
+      !seoOptimizations?.keywords ||
+      !Array.isArray(seoOptimizations.keywords)
+    ) {
+      throw new Error("Invalid seoOptimizations format");
+    }
+  }
+
+  private validateImprovements(improvements: any): void {
+    if (!improvements.title || typeof improvements.title !== "string") {
+      throw new Error("Missing or invalid title in improvements");
+    }
+
+    if (!improvements.content || typeof improvements.content !== "string") {
+      throw new Error("Missing or invalid content in improvements");
+    }
+
+    if (!Array.isArray(improvements.keyTakeaways)) {
+      throw new Error("keyTakeaways must be an array");
+    }
+
+    if (!Array.isArray(improvements.changeLog)) {
+      throw new Error("changeLog must be an array");
     }
   }
 
@@ -114,108 +214,21 @@ export class EditorAgent implements BaseAgent {
     try {
       const outputParser = new StringOutputParser();
 
-      // First, plan the improvements based on critique
-      const planningPrompt = `You are a professional content editor improving a blog post about "${
-        input.topic
-      }".
-Review the critique and plan improvements to the content.
-
-Current Title: ${input.title}
-Target Audience: ${input.metadata.targetAudience}
-
-Critique Overview:
-- Overall Score: ${input.critique.overallScore}/10
-- Strengths: ${input.critique.feedback.strengths.join(", ")}
-- Weaknesses: ${input.critique.feedback.weaknesses.join(", ")}
-- Suggestions: ${input.critique.feedback.suggestions.join(", ")}
-
-Content Issues:
-${input.critique.contentIssues
-  .map(
-    (issue) =>
-      `- ${issue.type.toUpperCase()} (${issue.severity}): ${
-        issue.issue
-      }\n  Suggestion: ${issue.suggestion}`
-  )
-  .join("\n")}
-
-SEO Analysis:
-${JSON.stringify(input.critique.seoAnalysis, null, 2)}
-
-Original Content:
-${input.content}
-
-You must respond with a valid JSON object using this exact structure:
-{
-    "improvementPlan": {
-        "titleChanges": {
-            "shouldChange": boolean,
-            "reason": "reason for changing or keeping title",
-            "newTitle": "new title if should change"
-        },
-        "structuralChanges": [
-            {
-                "type": "addition|modification|deletion",
-                "location": "where in the content",
-                "change": "what to change"
-            }
-        ],
-        "styleImprovements": [
-            "improvement 1",
-            "improvement 2"
-        ],
-        "seoOptimizations": {
-            "keywords": ["keyword 1", "keyword 2"],
-            "metaDescription": "optimized meta description"
-        }
-    }
-}
-
-Remember: Your entire response must be a valid JSON object.`;
-
+      // Get the improvement plan
       const planningResponse = await this.model
         .pipe(outputParser)
-        .invoke(planningPrompt);
+        .invoke(this.createPlanningPrompt(input));
 
       const plan = await this.parseJSONSafely(planningResponse);
+      this.validateImprovementPlan(plan);
 
-      // Then, execute the improvements
-      const editingPrompt = `You are improving a blog post based on the following improvement plan:
-${JSON.stringify(plan, null, 2)}
-
-Original Content:
-${input.content}
-
-You must respond with a valid JSON object using this exact structure:
-{
-    "title": "final title",
-    "content": "improved content in markdown format",
-    "keyTakeaways": ["key point 1", "key point 2", "key point 3"],
-    "changeLog": [
-        {
-            "type": "title|content|structure|seo",
-            "description": "what was changed",
-            "before": "original text if applicable",
-            "after": "new text if applicable"
-        }
-    ]
-}
-
-Guidelines:
-1. Maintain the original voice and style while improving clarity
-2. Ensure all changes align with the critique feedback
-3. Optimize for both readability and SEO
-4. Keep the content focused and engaging
-5. Preserve valuable original content while fixing issues
-6. Use markdown formatting appropriately
-
-Remember: Your entire response must be a valid JSON object.`;
-
+      // Execute the improvements
       const editingResponse = await this.model
         .pipe(outputParser)
-        .invoke(editingPrompt);
+        .invoke(this.createEditingPrompt(input, plan));
 
       const improvements = await this.parseJSONSafely(editingResponse);
+      this.validateImprovements(improvements);
 
       // Calculate updated metadata
       const wordCount = improvements.content.split(/\s+/).length;
@@ -247,5 +260,94 @@ Remember: Your entire response must be a valid JSON object.`;
       await runTree.postRun();
       throw error;
     }
+  }
+
+  private createPlanningPrompt(input: EditorInput): string {
+    return `You are a professional content editor improving a blog post about "${
+      input.topic
+    }".
+Review the critique and plan improvements to the content.
+
+Current Title: ${input.title}
+Target Audience: ${input.metadata.targetAudience}
+
+Critique Overview:
+- Overall Score: ${input.critique.overallScore}/10
+- Strengths: ${input.critique.feedback.strengths.join(", ")}
+- Weaknesses: ${input.critique.feedback.weaknesses.join(", ")}
+- Suggestions: ${input.critique.feedback.suggestions.join(", ")}
+
+Content Issues:
+${input.critique.contentIssues
+  .map(
+    (issue) =>
+      `- ${issue.type.toUpperCase()} (${issue.severity}): ${
+        issue.issue
+      }\n  Suggestion: ${issue.suggestion}`
+  )
+  .join("\n")}
+
+SEO Analysis:
+${JSON.stringify(input.critique.seoAnalysis, null, 2)}
+
+Original Content:
+${input.content}
+
+Respond with a JSON object using this exact structure:
+{
+    "improvementPlan": {
+        "titleChanges": {
+            "shouldChange": boolean,
+            "reason": "reason for changing or keeping title",
+            "newTitle": "new title if should change"
+        },
+        "structuralChanges": [
+            {
+                "type": "addition|modification|deletion",
+                "location": "where in the content",
+                "change": "what to change"
+            }
+        ],
+        "styleImprovements": [
+            "improvement 1",
+            "improvement 2"
+        ],
+        "seoOptimizations": {
+            "keywords": ["keyword 1", "keyword 2"],
+            "metaDescription": "optimized meta description"
+        }
+    }
+}`;
+  }
+
+  private createEditingPrompt(input: EditorInput, plan: any): string {
+    return `You are improving a blog post based on the following improvement plan:
+${JSON.stringify(plan, null, 2)}
+
+Original Content:
+${input.content}
+
+Respond with a JSON object using this exact structure:
+{
+    "title": "final title",
+    "content": "improved content in markdown format",
+    "keyTakeaways": ["key point 1", "key point 2", "key point 3"],
+    "changeLog": [
+        {
+            "type": "title|content|structure|seo",
+            "description": "what was changed",
+            "before": "original text if applicable",
+            "after": "new text if applicable"
+        }
+    ]
+}
+
+Guidelines:
+1. Maintain the original voice and style while improving clarity
+2. Ensure all changes align with the critique feedback
+3. Optimize for both readability and SEO
+4. Keep the content focused and engaging
+5. Preserve valuable original content while fixing issues
+6. Use markdown formatting appropriately`;
   }
 }

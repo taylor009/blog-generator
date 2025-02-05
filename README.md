@@ -193,64 +193,82 @@ Below is the general flow of how the multi-agent system works. Some agents are s
 ## Agent Workflow
 
 ```mermaid
-graph LR
+graph TB
     Topic[Topic Input] --> R[Researcher Agent]
-    R -->|Raw Data| C[Curator Agent]
-    C -->|Curated Content| W[Writer Agent]
-    W -->|Draft Post| CR[Critiquer Agent]
-    CR -->|Feedback| E[Editor Agent]
-    E -->|Polished Post| P[Publisher Agent]
-    P -->|Published Post| GH[GitHub Pages]
     
-    subgraph Data Flow
-        R -->|Search Results| C
-        C -->|Selected Info| W
-        W -->|Initial Draft| CR
-        CR -->|Critique| E
-        E -->|Final Draft| P
+    subgraph Research Phase
+        R -->|Search Results & Summary| C[Curator Agent]
+    end
+    
+    subgraph Content Creation
+        C -->|Curated Info & Angles| W[Writer Agent]
+        W -->|Draft Post| CR[Critiquer Agent]
+        CR -->|Feedback & Analysis| E[Editor Agent]
+        E -->|Final Post| P[Publisher Agent]
+    end
+    
+    subgraph Data Flow Details
+        R -->|"searchResults[], summary"| C
+        C -->|"selectedResults[], curatedSummary, suggestedAngles[]"| W
+        W -->|"title, content, metadata"| CR
+        CR -->|"critique{feedback, contentIssues, seoAnalysis}"| E
+        E -->|"improvedContent, metadata, changeLog[]"| P
+        P -->|Published Post| Output[GitHub Pages]
+    end
+    
+    subgraph Agent Responsibilities
+        direction TB
+        R2[Researcher]-->|Uses Tavily API|R3[Web Search]
+        C2[Curator]-->|Filters & Scores|C3[Content Analysis]
+        W2[Writer]-->|Drafts Post|W3[Content Creation]
+        CR2[Critiquer]-->|Reviews & Analyzes|CR3[Quality Check]
+        E2[Editor]-->|Improves & Refines|E3[Content Enhancement]
+        P2[Publisher]-->|Formats & Deploys|P3[Jekyll/GitHub Pages]
     end
 
-    style Topic fill:#f9f,stroke:#333,stroke-width:2px
-    style R fill:#bbf,stroke:#333,stroke-width:2px
-    style C fill:#bbf,stroke:#333,stroke-width:2px
-    style W fill:#bbf,stroke:#333,stroke-width:2px
-    style CR fill:#bbf,stroke:#333,stroke-width:2px
-    style E fill:#bbf,stroke:#333,stroke-width:2px
-    style P fill:#bbf,stroke:#333,stroke-width:2px
-    style GH fill:#bfb,stroke:#333,stroke-width:2px
+    classDef primary fill:#bbf,stroke:#333,stroke-width:2px
+    classDef input fill:#f9f,stroke:#333,stroke-width:2px
+    classDef output fill:#bfb,stroke:#333,stroke-width:2px
+    classDef subProcess fill:#ffd,stroke:#333,stroke-width:1px
+    
+    class Topic input
+    class R,C,W,CR,E,P primary
+    class Output output
+    class R2,C2,W2,CR2,E2,P2 subProcess
+    class R3,C3,W3,CR3,E3,P3 subProcess
 ```
 
-### Agent Responsibilities
+## Agent Details
 
 1. **Researcher Agent**
    - Uses Tavily Search API
    - Gathers comprehensive information
-   - Summarizes findings
+   - Outputs: Search results and summary
 
 2. **Curator Agent**
    - Filters relevant information
    - Scores content quality
-   - Suggests content angles
+   - Outputs: Selected results, summary, and angles
 
 3. **Writer Agent**
    - Creates initial blog draft
    - Structures content
-   - Incorporates sources
+   - Outputs: Title, content, and metadata
 
 4. **Critiquer Agent**
    - Reviews content quality
-   - Checks SEO optimization
-   - Suggests improvements
+   - Analyzes SEO and structure
+   - Outputs: Feedback, issues, and analysis
 
 5. **Editor Agent**
-   - Implements critique feedback
+   - Implements improvements
    - Refines writing style
-   - Optimizes structure
+   - Outputs: Enhanced content with changelog
 
 6. **Publisher Agent**
    - Formats for Jekyll
    - Handles GitHub Pages deployment
-   - Manages metadata
+   - Outputs: Published post with metadata
 
 
 

@@ -58,17 +58,67 @@ export class CritiquerAgent implements BaseAgent {
 
   private async parseJSONSafely(jsonString: string): Promise<any> {
     try {
+      // First try to parse the string directly
       return JSON.parse(jsonString);
     } catch (e) {
-      const jsonMatch = jsonString.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (jsonMatch) {
+      // Look for JSON in markdown code blocks first
+      const codeBlockRegex = /```(?:json)?\n([\s\S]*?)\n```/;
+      const codeBlockMatch = jsonString.match(codeBlockRegex);
+
+      if (codeBlockMatch && codeBlockMatch[1]) {
         try {
-          return JSON.parse(jsonMatch[0]);
+          // Try to parse the content inside the code block
+          return JSON.parse(codeBlockMatch[1]);
         } catch (e2) {
-          throw new Error(`Failed to parse JSON response: ${jsonString}`);
+          // If that fails, try to clean up the code block content
+          const cleanedBlock = codeBlockMatch[1]
+            .replace(/\\n/g, " ") // Replace literal \n with space
+            .replace(/\n/g, " ") // Replace actual newlines with space
+            .replace(/\s+/g, " ") // Normalize whitespace
+            .replace(/"\s+}/g, '"}') // Fix spacing in object endings
+            .replace(/"\s+,/g, '",') // Fix spacing in property separators
+            .replace(/,(\s+})/g, "$1") // Remove trailing commas
+            .replace(/\\"/g, '"') // Fix escaped quotes
+            .replace(/\\\\/g, "\\") // Fix escaped backslashes
+            .trim();
+
+          try {
+            return JSON.parse(cleanedBlock);
+          } catch (e3) {
+            // Continue to next attempt if this fails
+          }
         }
       }
-      throw new Error(`No valid JSON found in response: ${jsonString}`);
+
+      // If no code block or parsing failed, try to find JSON pattern in the whole text
+      const jsonPattern = /(\{[\s\S]*?\}|\[[\s\S]*?\])/;
+      const jsonMatch = jsonString.match(jsonPattern);
+
+      if (jsonMatch && jsonMatch[1]) {
+        try {
+          let cleaned = jsonMatch[1]
+            .replace(/\\n/g, " ")
+            .replace(/\n/g, " ")
+            .replace(/\s+/g, " ")
+            .replace(/"\s+}/g, '"}')
+            .replace(/"\s+,/g, '",')
+            .replace(/,(\s+})/g, "$1")
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, "\\")
+            .trim();
+
+          return JSON.parse(cleaned);
+        } catch (e4) {
+          // Log the cleaned content for debugging
+          console.error("Failed to parse cleaned JSON:", jsonMatch[1]);
+        }
+      }
+
+      // If all attempts fail, throw a descriptive error
+      console.error("Original content:", jsonString);
+      throw new Error(
+        "Failed to parse JSON response. The response may not be in the expected format."
+      );
     }
   }
 
